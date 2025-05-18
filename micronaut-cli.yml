@@ -1,0 +1,6 @@
+applicationType: default
+defaultPackage: com.anaphygon.streaming
+testFramework: junit
+sourceLanguage: kotlin
+buildTool: gradle_kotlin
+features: [app-name, data, data-jpa, flyway, graalvm, gradle, http-client, jackson-databind, jdbc-hikari, junit, kafka, kotlin, kotlin-application, ksp, logback, management, micrometer, micrometer-prometheus, micronaut-aot, micronaut-build, micronaut-http-validation, mockito, mysql, netty-server, openapi, properties, readme, redis-lettuce, security-annotations, security-jwt, security-oauth2, shade, static-resources, test-resources, testcontainers, tracing-jaeger, validation, views-fieldset, views-thymeleaf]
