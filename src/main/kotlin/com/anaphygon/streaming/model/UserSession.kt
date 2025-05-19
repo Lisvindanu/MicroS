@@ -11,8 +11,8 @@ import java.time.LocalDateTime
 @Table(
     name = "user_sessions",
     indexes = [
-        Index(name = "idx_user_sessions", columnList = "user_id"),
         Index(name = "idx_session_token", columnList = "session_token"),
+        Index(name = "idx_user_sessions", columnList = "user_id"),
         Index(name = "idx_active_sessions", columnList = "user_id,is_active"),
         Index(name = "idx_login_time", columnList = "login_at")
     ]
@@ -23,12 +23,12 @@ data class UserSession(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     var user: User,
 
-    @Column(name = "session_token", length = 255, unique = true)
-    var sessionToken: String? = null,
+    @Column(name = "session_token", nullable = false, unique = true, length = 255)
+    var sessionToken: String,
 
     @Column(name = "ip_address", length = 45)
     var ipAddress: String? = null,
@@ -55,17 +55,10 @@ data class UserSession(
     var expiresAt: LocalDateTime? = null
 ) {
     /**
-     * Check if session is expired
-     */
-    fun isExpired(): Boolean {
-        return expiresAt?.isBefore(LocalDateTime.now()) == true
-    }
-
-    /**
      * Check if session is valid (active and not expired)
      */
     fun isValid(): Boolean {
-        return isActive && !isExpired() && logoutAt == null
+        return isActive && (expiresAt == null || expiresAt!!.isAfter(LocalDateTime.now()))
     }
 
     /**
@@ -76,10 +69,17 @@ data class UserSession(
     }
 
     /**
-     * End the session
+     * End session
      */
     fun endSession() {
         isActive = false
         logoutAt = LocalDateTime.now()
+    }
+
+    /**
+     * Extend session expiration
+     */
+    fun extendSession(days: Int = 30) {
+        expiresAt = LocalDateTime.now().plusDays(days.toLong())
     }
 }

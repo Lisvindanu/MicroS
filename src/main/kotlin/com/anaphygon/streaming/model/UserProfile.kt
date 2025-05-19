@@ -2,7 +2,6 @@ package com.anaphygon.streaming.model
 
 import io.micronaut.core.annotation.Introspected
 import jakarta.persistence.*
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
@@ -21,7 +20,7 @@ data class UserProfile(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     var user: User,
 
@@ -41,7 +40,7 @@ data class UserProfile(
     var avatarUrl: String? = null,
 
     @Column(name = "birth_date")
-    var birthDate: LocalDate? = null,
+    var birthDate: LocalDateTime? = null,
 
     @Column(name = "phone_number", length = 20)
     var phoneNumber: String? = null,
@@ -78,7 +77,7 @@ data class UserProfile(
      */
     fun getAge(): Int? {
         return birthDate?.let {
-            val today = LocalDate.now()
+            val today = LocalDateTime.now()
             var age = today.year - it.year
             if (today.month < it.month || (today.month == it.month && today.dayOfMonth < it.dayOfMonth)) {
                 age--

@@ -12,7 +12,7 @@ import java.time.LocalDateTime
 import java.util.Base64
 
 /**
- * Authentication Service - handles login, logout, and session management
+ * Authentication Service - handles login, logout, and session management with improved error handling
  */
 @Singleton
 @Transactional
@@ -27,10 +27,10 @@ open class AuthService @Inject constructor(
     private val secureRandom = SecureRandom()
 
     /**
-     * Authenticate user and create session
+     * Authenticate user and create session with enhanced error handling
      */
     open fun login(request: UserLoginRequest): UserSession? {
-        try {
+        return try {
             logger.info("Authentication attempt for: ${request.usernameOrEmail}")
 
             val user = userService.findByUsernameOrEmail(request.usernameOrEmail)
@@ -48,7 +48,8 @@ open class AuthService @Inject constructor(
             logger.info("User is active")
 
             // Get security record
-            val security = userSecurityRepository.findByUserId(user.id!!)
+            val userId = user.id ?: throw IllegalStateException("User ID is null")
+            val security = userSecurityRepository.findByUserId(userId)
                 .orElse(null)
             if (security == null) {
                 logger.error("Security record not found for user: ${user.username}")
@@ -65,7 +66,6 @@ open class AuthService @Inject constructor(
 
             // Verify password
             logger.info("Attempting password verification for user: ${user.username}")
-            logger.info("Stored password hash: ${user.passwordHash}")
             if (!userService.verifyPassword(user, request.password)) {
                 // Log failed attempt
                 security.incrementFailedLoginAttempts()
@@ -113,7 +113,7 @@ open class AuthService @Inject constructor(
             logger.info("Login activity logged")
 
             logger.info("User authenticated successfully: ${user.username}")
-            return savedSession
+            savedSession
         } catch (e: Exception) {
             logger.error("Error during login process for user: ${request.usernameOrEmail}", e)
             throw e
@@ -121,56 +121,128 @@ open class AuthService @Inject constructor(
     }
 
     /**
-     * Logout user (end session)
+     * Logout user (end session) with improved error handling
      */
+    @Transactional
     open fun logout(sessionToken: String, ipAddress: String? = null, userAgent: String? = null): Boolean {
-        val session = userSessionRepository.findBySessionToken(sessionToken)
-            .orElse(null) ?: return false
+        return try {
+            if (sessionToken.isBlank()) {
+                logger.warn("Logout failed: empty session token")
+                return false
+            }
 
-        // End the session
-        session.endSession()
-        userSessionRepository.save(session)
+            // Find session directly from repository
+            val session = userSessionRepository.findBySessionToken(sessionToken).orElse(null)
+            if (session == null) {
+                logger.warn("Logout failed: session not found")
+                return false
+            }
 
-        // Log logout activity
-        val logoutLog = UserActivityLog.createLogoutLog(
-            user = session.user,
-            ipAddress = ipAddress,
-            userAgent = userAgent
-        )
-        userActivityLogRepository.save(logoutLog)
+            // End the session
+            session.isActive = false
+            session.logoutAt = LocalDateTime.now()
+            userSessionRepository.save(session)
 
-        logger.info("User logged out: ${session.user.username}")
-        return true
+            // Log logout activity
+            val logoutLog = UserActivityLog.createLogoutLog(
+                user = session.user,
+                ipAddress = ipAddress,
+                userAgent = userAgent
+            )
+            userActivityLogRepository.save(logoutLog)
+
+            logger.info("User logged out successfully: ${session.user.username}")
+            true
+        } catch (e: Exception) {
+            logger.error("Error during logout for session token: $sessionToken", e)
+            false
+        }
     }
 
     /**
-     * Find active session by token
+     * Find active session by token with null safety
      */
     open fun findActiveSession(sessionToken: String): UserSession? {
-        val session = userSessionRepository.findBySessionToken(sessionToken)
-            .orElse(null) ?: return null
+        return try {
+            if (sessionToken.isBlank()) {
+                logger.warn("Find session failed: empty session token")
+                return null
+            }
 
-        return if (session.isValid()) session else null
+            val session = userSessionRepository.findBySessionToken(sessionToken).orElse(null)
+            if (session == null) {
+                logger.debug("Session not found for token")
+                return null
+            }
+
+            if (!session.isValid()) {
+                logger.debug("Session found but is invalid (expired or inactive)")
+                return null
+            }
+
+            // Check if user is still valid
+            if (session.user.id == null || !session.user.isActive()) {
+                logger.warn("Session found but user is invalid or inactive")
+                return null
+            }
+
+            session
+        } catch (e: Exception) {
+            logger.error("Error finding active session for token: $sessionToken", e)
+            null
+        }
     }
 
     /**
-     * Validate session and update last activity
+     * Validate session and update last activity with error handling
      */
+    @Transactional
     open fun validateAndUpdateSession(sessionToken: String): UserSession? {
-        val session = findActiveSession(sessionToken) ?: return null
+        return try {
+            if (sessionToken.isBlank()) {
+                logger.warn("Session validation failed: empty session token")
+                return null
+            }
 
-        // Update last activity
-        session.updateLastActivity()
-        userSessionRepository.save(session)
+            val session = userSessionRepository.findBySessionToken(sessionToken).orElse(null)
+            if (session == null) {
+                logger.debug("Session validation failed: session not found")
+                return null
+            }
 
-        return session
+            if (!session.isValid()) {
+                logger.debug("Session validation failed: session is invalid (expired or inactive)")
+                return null
+            }
+
+            // Check if user is still valid
+            if (session.user.id == null || !session.user.isActive()) {
+                logger.warn("Session validation failed: user is invalid or inactive")
+                return null
+            }
+
+            // Update last activity
+            session.updateLastActivity()
+            userSessionRepository.save(session)
+
+            logger.debug("Session validated and activity updated for user: ${session.user.username}")
+            session
+        } catch (e: Exception) {
+            logger.error("Error validating session for token: $sessionToken", e)
+            null
+        }
     }
 
     /**
-     * End all user sessions (useful for security purposes)
+     * End all user sessions (useful for security purposes) with error handling
      */
     open fun endAllUserSessions(userId: Long): Boolean {
         return try {
+            if (userId <= 0) {
+                logger.warn("Invalid user ID for ending sessions: $userId")
+                return false
+            }
+
             userSessionRepository.deactivateAllUserSessions(userId)
             logger.info("All sessions ended for user ID: $userId")
             true
@@ -181,18 +253,33 @@ open class AuthService @Inject constructor(
     }
 
     /**
-     * Count active sessions for user
+     * Count active sessions for user with error handling
      */
     open fun countActiveUserSessions(userId: Long): Long {
-        return userSessionRepository.countActiveSessionsByUserId(userId)
+        return try {
+            if (userId <= 0) {
+                logger.warn("Invalid user ID for counting sessions: $userId")
+                return 0L
+            }
+            userSessionRepository.countActiveSessionsByUserId(userId)
+        } catch (e: Exception) {
+            logger.error("Failed to count active sessions for user ID: $userId", e)
+            0L
+        }
     }
 
     /**
      * Generate a secure random token for session
      */
     private fun generateSecureToken(): String {
-        val bytes = ByteArray(32)
-        secureRandom.nextBytes(bytes)
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        return try {
+            val bytes = ByteArray(32)
+            secureRandom.nextBytes(bytes)
+            Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        } catch (e: Exception) {
+            logger.error("Failed to generate secure token", e)
+            // Fallback to a simpler method
+            Base64.getEncoder().encodeToString("${System.currentTimeMillis()}-${System.nanoTime()}".toByteArray())
+        }
     }
 }

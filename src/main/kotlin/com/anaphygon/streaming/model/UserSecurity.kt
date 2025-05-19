@@ -61,6 +61,17 @@ data class UserSecurity(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now()
 ) {
+    // Override equals and hashCode to break circular dependency
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is UserSecurity) return false
+        return id == other.id
+    }
+
+    override fun hashCode(): Int {
+        return id?.hashCode() ?: 0
+    }
+
     /**
      * Check if account is currently locked
      */

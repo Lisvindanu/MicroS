@@ -15,7 +15,7 @@ data class UserPreferences(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     var user: User,
 
@@ -23,7 +23,7 @@ data class UserPreferences(
     var preferredLanguage: String = "id",
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "preferred_quality", nullable = false)
+    @Column(name = "preferred_quality", length = 10, nullable = false)
     var preferredQuality: VideoQuality = VideoQuality.AUTO,
 
     @Column(name = "autoplay_enabled", nullable = false)
@@ -50,7 +50,7 @@ data class UserPreferences(
     @Column(name = "parental_control_pin", length = 6)
     var parentalControlPin: String? = null,
 
-    @Column(name = "content_filters", columnDefinition = "JSON")
+    @Column(name = "content_filters", columnDefinition = "json")
     var contentFilters: String? = null, // JSON array of blocked categories
 
     @Column(name = "created_at", nullable = false)
