@@ -21,7 +21,12 @@ data class UserLoginRequest(
     val ipAddress: String? = null,
     val userAgent: String? = null,
     val deviceInfo: String? = null
-)
+) {
+    init {
+        require(usernameOrEmail.isNotBlank()) { "Username or email is required" }
+        require(password.isNotBlank()) { "Password is required" }
+    }
+}
 
 /**
  * User profile update request DTO

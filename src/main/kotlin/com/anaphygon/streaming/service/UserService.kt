@@ -118,12 +118,25 @@ open class UserService @Inject constructor(
             // Check if the stored hash is BCrypt
             if (user.passwordHash.startsWith("$2")) {
                 logger.info("Using BCrypt verification")
-                BCrypt.checkpw(password, user.passwordHash)
+                logger.info("Stored hash: ${user.passwordHash}")
+                logger.info("Input password length: ${password.length}")
+                try {
+                    val result = BCrypt.checkpw(password, user.passwordHash)
+                    logger.info("BCrypt verification result: $result")
+                    result
+                } catch (e: Exception) {
+                    logger.error("BCrypt verification failed", e)
+                    false
+                }
             } else {
                 // Fallback to SHA-256
                 logger.info("Using SHA-256 verification")
                 val hashedPassword = hashPassword(password)
-                hashedPassword == user.passwordHash
+                logger.info("Stored hash: ${user.passwordHash}")
+                logger.info("Computed hash: $hashedPassword")
+                val result = hashedPassword == user.passwordHash
+                logger.info("SHA-256 verification result: $result")
+                result
             }
         } catch (e: Exception) {
             logger.error("Error verifying password for user: ${user.username}", e)
@@ -178,11 +191,6 @@ open class UserService @Inject constructor(
      * Hash password using BCrypt
      */
     private fun hashPassword(password: String): String {
-        return try {
-            BCrypt.hashpw(password, BCrypt.gensalt(12))
-        } catch (e: Exception) {
-            logger.error("Error hashing password", e)
-            throw RuntimeException("Error hashing password", e)
-        }
+        return BCrypt.hashpw(password, BCrypt.gensalt(12))
     }
 }

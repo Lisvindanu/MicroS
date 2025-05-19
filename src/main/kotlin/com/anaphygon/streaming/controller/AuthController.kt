@@ -41,6 +41,20 @@ open class AuthController @Inject constructor(
             }
 
             HttpResponse.ok(response)
+        } catch (e: IllegalArgumentException) {
+            logger.warn("Login failed for user: ${request.usernameOrEmail} - ${e.message}")
+            val response = ApiResponse<SessionResponse>(
+                success = false,
+                message = e.message ?: "Invalid credentials"
+            )
+            HttpResponse.badRequest(response)
+        } catch (e: IllegalStateException) {
+            logger.warn("Login failed for user: ${request.usernameOrEmail} - ${e.message}")
+            val response = ApiResponse<SessionResponse>(
+                success = false,
+                message = e.message ?: "Account is not active"
+            )
+            HttpResponse.badRequest(response)
         } catch (e: Exception) {
             logger.error("Login failed for user: ${request.usernameOrEmail}", e)
             val response = ApiResponse<SessionResponse>(

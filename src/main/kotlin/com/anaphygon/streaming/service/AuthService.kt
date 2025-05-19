@@ -65,6 +65,7 @@ open class AuthService @Inject constructor(
 
             // Verify password
             logger.info("Attempting password verification for user: ${user.username}")
+            logger.info("Stored password hash: ${user.passwordHash}")
             if (!userService.verifyPassword(user, request.password)) {
                 // Log failed attempt
                 security.incrementFailedLoginAttempts()
