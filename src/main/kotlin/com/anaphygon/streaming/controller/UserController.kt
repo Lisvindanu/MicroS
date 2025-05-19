@@ -3,6 +3,7 @@ package com.anaphygon.streaming.controller
 import com.anaphygon.streaming.dto.*
 import com.anaphygon.streaming.model.*
 import com.anaphygon.streaming.service.*
+import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
@@ -10,7 +11,7 @@ import jakarta.inject.Inject
 import jakarta.validation.constraints.NotBlank
 
 /**
- * User Controller - handles user registration and basic user operations
+ * User Controller - handles user registration and basic user operations with CORS
  */
 @Controller("/api/users")
 open class UserController @Inject constructor(
@@ -20,56 +21,39 @@ open class UserController @Inject constructor(
 ) {
 
     /**
-     * User registration
+     * User registration with CORS headers
      */
     @Post("/register")
     @Secured(SecurityRule.IS_ANONYMOUS)
-    open fun register(@Body request: UserRegistrationRequest): ApiResponse<UserResponse> {
+    open fun register(@Body request: UserRegistrationRequest): HttpResponse<ApiResponse<UserResponse>> {
         return try {
-            // Create user
             val user = userService.createUser(request)
-
-            // Create initial profile and preferences
-            profileService.createInitialProfile(
-                user = user,
-                firstName = request.firstName,
-                lastName = request.lastName,
-                displayName = request.displayName
-            )
-            profileService.createInitialPreferences(user)
-
-            // Get updated user with profile
-            val updatedUser = userService.findById(user.id!!)!!
-
-            ApiResponse(
+            val response = ApiResponse(
                 success = true,
-                data = updatedUser.toUserResponse(),
-                message = "User registered successfully"
+                data = user.toUserResponse(),
+                message = "Registration successful"
             )
-        } catch (e: IllegalArgumentException) {
-            ApiResponse(
-                success = false,
-                message = e.message
-            )
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserResponse>(
                 success = false,
                 message = "Registration failed: ${e.message}"
             )
+            HttpResponse.badRequest(response)
         }
     }
 
     /**
-     * Get current user info
+     * Get current user info with CORS headers
      */
     @Get("/me")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun getCurrentUser(@Header("Authorization") authToken: String): ApiResponse<UserResponse> {
+    open fun getCurrentUser(@Header("Authorization") authToken: String): HttpResponse<ApiResponse<UserResponse>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 ApiResponse(
                     success = true,
                     data = session.user.toUserResponse(),
@@ -81,23 +65,25 @@ open class UserController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserResponse>(
                 success = false,
                 message = "Failed to get user: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Get user by ID
+     * Get user by ID with CORS headers
      */
     @Get("/{id}")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun getUserById(@PathVariable id: Long): ApiResponse<UserResponse> {
+    open fun getUserById(@PathVariable id: Long): HttpResponse<ApiResponse<UserResponse>> {
         return try {
             val user = userService.findById(id)
-            if (user != null) {
+            val response = if (user != null) {
                 ApiResponse(
                     success = true,
                     data = user.toUserResponse(),
@@ -109,79 +95,87 @@ open class UserController @Inject constructor(
                     message = "User not found"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserResponse>(
                 success = false,
                 message = "Failed to get user: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Search users
+     * Search users with CORS headers
      */
     @Get("/search")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun searchUsers(@QueryValue("q") @NotBlank query: String): ApiResponse<List<UserResponse>> {
+    open fun searchUsers(@QueryValue("q") @NotBlank query: String): HttpResponse<ApiResponse<List<UserResponse>>> {
         return try {
             val users = userService.searchUsers(query)
             val userResponses = users.map { it.toUserResponse() }
 
-            ApiResponse(
+            val response = ApiResponse(
                 success = true,
                 data = userResponses,
                 message = "Search completed"
             )
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<List<UserResponse>>(
                 success = false,
                 message = "Search failed: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Get all active users (admin only)
+     * Get all active users (admin only) with CORS headers
      */
     @Get("/")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun getAllActiveUsers(): ApiResponse<List<UserResponse>> {
+    open fun getAllActiveUsers(): HttpResponse<ApiResponse<List<UserResponse>>> {
         return try {
             val users = userService.findAllActive()
             val userResponses = users.map { it.toUserResponse() }
 
-            ApiResponse(
+            val response = ApiResponse(
                 success = true,
                 data = userResponses,
                 message = "Active users retrieved"
             )
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<List<UserResponse>>(
                 success = false,
                 message = "Failed to get users: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Update user status (admin only)
+     * Update user status (admin only) with CORS headers
      */
     @Put("/{id}/status")
     @Secured(SecurityRule.IS_AUTHENTICATED)
     open fun updateUserStatus(
         @PathVariable id: Long,
         @Body statusRequest: Map<String, String>
-    ): ApiResponse<UserResponse> {
+    ): HttpResponse<ApiResponse<UserResponse>> {
         return try {
-            val statusString = statusRequest["status"] ?: return ApiResponse(
-                success = false,
-                message = "Status is required"
+            val statusString = statusRequest["status"] ?: return HttpResponse.badRequest(
+                ApiResponse<UserResponse>(
+                    success = false,
+                    message = "Status is required"
+                )
             )
 
             val status = UserStatus.valueOf(statusString.uppercase())
             val user = userService.updateUserStatus(id, status)
 
-            if (user != null) {
+            val response = if (user != null) {
                 ApiResponse(
                     success = true,
                     data = user.toUserResponse(),
@@ -193,16 +187,19 @@ open class UserController @Inject constructor(
                     message = "User not found"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: IllegalArgumentException) {
-            ApiResponse(
+            val response = ApiResponse<UserResponse>(
                 success = false,
                 message = "Invalid status value"
             )
+            HttpResponse.badRequest(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserResponse>(
                 success = false,
                 message = "Failed to update status: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 

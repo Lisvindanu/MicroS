@@ -24,6 +24,13 @@ open class ProfileService @Inject constructor(
     private val logger = LoggerFactory.getLogger(ProfileService::class.java)
 
     /**
+     * Get profile by ID
+     */
+    open fun getProfile(id: Long): UserProfile? {
+        return userProfileRepository.findById(id).orElse(null)
+    }
+
+    /**
      * Create initial profile for new user
      */
     open fun createInitialProfile(user: User, firstName: String? = null, lastName: String? = null, displayName: String? = null): UserProfile {

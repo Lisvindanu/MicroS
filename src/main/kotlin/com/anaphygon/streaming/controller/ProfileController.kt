@@ -3,31 +3,52 @@ package com.anaphygon.streaming.controller
 import com.anaphygon.streaming.dto.*
 import com.anaphygon.streaming.model.*
 import com.anaphygon.streaming.service.*
+import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 import jakarta.inject.Inject
 
 /**
- * Profile Controller - handles user profile and preferences management
+ * Profile Controller - handles user profile and preferences management with CORS
  */
-@Controller("/api/profile")
+@Controller("/api/profiles")
 open class ProfileController @Inject constructor(
     private val authService: AuthService,
     private val profileService: ProfileService
 ) {
 
+    @Get("/{id}")
+    @Secured(SecurityRule.IS_AUTHENTICATED)
+    open fun getProfile(@PathVariable id: Long): HttpResponse<ApiResponse<ProfileResponse>> {
+        return try {
+            val profile = profileService.getProfile(id)
+            val response = ApiResponse(
+                success = true,
+                data = profile?.toProfileResponse(),
+                message = "Profile retrieved successfully"
+            )
+            HttpResponse.ok(response)
+        } catch (e: Exception) {
+            val response = ApiResponse<ProfileResponse>(
+                success = false,
+                message = "Failed to get profile: ${e.message}"
+            )
+            HttpResponse.serverError(response)
+        }
+    }
+
     /**
-     * Get current user profile
+     * Get current user profile with CORS headers
      */
     @Get("/")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun getProfile(@Header("Authorization") authToken: String): ApiResponse<UserProfileResponse> {
+    open fun getProfile(@Header("Authorization") authToken: String): HttpResponse<ApiResponse<UserProfileResponse>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 val profile = profileService.getUserProfile(session.user.id!!)
                 if (profile != null) {
                     ApiResponse(
@@ -47,28 +68,30 @@ open class ProfileController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserProfileResponse>(
                 success = false,
                 message = "Failed to get profile: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Update user profile
+     * Update user profile with CORS headers
      */
     @Put("/")
     @Secured(SecurityRule.IS_AUTHENTICATED)
     open fun updateProfile(
         @Header("Authorization") authToken: String,
         @Body request: UserProfileUpdateRequest
-    ): ApiResponse<UserProfileResponse> {
+    ): HttpResponse<ApiResponse<UserProfileResponse>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 val profile = profileService.updateProfile(session.user.id!!, request)
                 if (profile != null) {
                     ApiResponse(
@@ -88,25 +111,27 @@ open class ProfileController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserProfileResponse>(
                 success = false,
                 message = "Profile update failed: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Get user preferences
+     * Get user preferences with CORS headers
      */
     @Get("/preferences")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun getPreferences(@Header("Authorization") authToken: String): ApiResponse<UserPreferencesResponse> {
+    open fun getPreferences(@Header("Authorization") authToken: String): HttpResponse<ApiResponse<UserPreferencesResponse>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 val preferences = profileService.getUserPreferences(session.user.id!!)
                 if (preferences != null) {
                     ApiResponse(
@@ -126,28 +151,30 @@ open class ProfileController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserPreferencesResponse>(
                 success = false,
                 message = "Failed to get preferences: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Update user preferences
+     * Update user preferences with CORS headers
      */
     @Put("/preferences")
     @Secured(SecurityRule.IS_AUTHENTICATED)
     open fun updatePreferences(
         @Header("Authorization") authToken: String,
         @Body preferences: UserPreferences
-    ): ApiResponse<UserPreferencesResponse> {
+    ): HttpResponse<ApiResponse<UserPreferencesResponse>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 val updatedPreferences = profileService.updatePreferences(session.user.id!!, preferences)
                 if (updatedPreferences != null) {
                     ApiResponse(
@@ -167,28 +194,30 @@ open class ProfileController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<UserPreferencesResponse>(
                 success = false,
                 message = "Preferences update failed: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Update parental control PIN
+     * Update parental control PIN with CORS headers
      */
     @Put("/parental-control")
     @Secured(SecurityRule.IS_AUTHENTICATED)
     open fun updateParentalControl(
         @Header("Authorization") authToken: String,
         @Body request: Map<String, String?>
-    ): ApiResponse<Boolean> {
+    ): HttpResponse<ApiResponse<Boolean>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 val newPin = request["pin"]
                 val preferences = profileService.updateParentalControlPin(session.user.id!!, newPin)
 
@@ -210,31 +239,35 @@ open class ProfileController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<Boolean>(
                 success = false,
                 message = "Failed to update parental control: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     /**
-     * Verify parental control PIN
+     * Verify parental control PIN with CORS headers
      */
     @Post("/parental-control/verify")
     @Secured(SecurityRule.IS_AUTHENTICATED)
     open fun verifyParentalControl(
         @Header("Authorization") authToken: String,
         @Body request: Map<String, String>
-    ): ApiResponse<Boolean> {
+    ): HttpResponse<ApiResponse<Boolean>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
-                val pin = request["pin"] ?: return ApiResponse(
-                    success = false,
-                    message = "PIN is required"
+            val response = if (session != null) {
+                val pin = request["pin"] ?: return HttpResponse.badRequest(
+                    ApiResponse<Boolean>(
+                        success = false,
+                        message = "PIN is required"
+                    )
                 )
 
                 val isValid = profileService.verifyParentalControlPin(session.user.id!!, pin)
@@ -249,15 +282,35 @@ open class ProfileController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<Boolean>(
                 success = false,
                 message = "PIN verification failed: ${e.message}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
     // === EXTENSION FUNCTIONS ===
+
+    private fun UserProfile.toProfileResponse(): ProfileResponse {
+        return ProfileResponse(
+            id = this.id!!,
+            userId = this.user.id!!,
+            firstName = this.firstName,
+            lastName = this.lastName,
+            displayName = this.displayName,
+            bio = this.bio,
+            avatarUrl = this.avatarUrl,
+            phoneNumber = this.phoneNumber,
+            country = this.country,
+            timezone = this.timezone,
+            age = this.getAge(),
+            createdAt = this.createdAt,
+            updatedAt = this.updatedAt
+        )
+    }
 
     private fun UserProfile.toUserProfileResponse(): UserProfileResponse {
         return UserProfileResponse(

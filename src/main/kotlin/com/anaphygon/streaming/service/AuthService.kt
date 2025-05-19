@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional
 import org.slf4j.LoggerFactory
 import java.security.SecureRandom
 import java.time.LocalDateTime
+import java.util.Base64
 
 /**
  * Authentication Service - handles login, logout, and session management
@@ -29,71 +30,93 @@ open class AuthService @Inject constructor(
      * Authenticate user and create session
      */
     open fun login(request: UserLoginRequest): UserSession? {
-        logger.info("Authentication attempt for: ${request.usernameOrEmail}")
+        try {
+            logger.info("Authentication attempt for: ${request.usernameOrEmail}")
 
-        val user = userService.findByUsernameOrEmail(request.usernameOrEmail) ?: return null
+            val user = userService.findByUsernameOrEmail(request.usernameOrEmail)
+            if (user == null) {
+                logger.warn("User not found: ${request.usernameOrEmail}")
+                return null
+            }
+            logger.info("User found: ${user.username} (ID: ${user.id})")
 
-        // Check if account is active
-        if (!user.isActive()) {
-            logger.warn("Login attempt for inactive user: ${user.username}")
-            return null
-        }
+            // Check if account is active
+            if (!user.isActive()) {
+                logger.warn("Login attempt for inactive user: ${user.username} (Status: ${user.status})")
+                return null
+            }
+            logger.info("User is active")
 
-        // Get security record
-        val security = userSecurityRepository.findByUserId(user.id!!)
-            .orElse(null) ?: return null
+            // Get security record
+            val security = userSecurityRepository.findByUserId(user.id!!)
+                .orElse(null)
+            if (security == null) {
+                logger.error("Security record not found for user: ${user.username}")
+                return null
+            }
+            logger.info("Security record found (ID: ${security.id})")
 
-        // Check if account is locked
-        if (security.isAccountLocked()) {
-            logger.warn("Login attempt for locked account: ${user.username}")
-            return null
-        }
+            // Check if account is locked
+            if (security.isAccountLocked()) {
+                logger.warn("Login attempt for locked account: ${user.username} (Locked until: ${security.accountLockedUntil})")
+                return null
+            }
+            logger.info("Account is not locked")
 
-        // Verify password
-        if (!userService.verifyPassword(user, request.password)) {
-            // Log failed attempt
-            security.incrementFailedLoginAttempts()
+            // Verify password
+            logger.info("Attempting password verification for user: ${user.username}")
+            if (!userService.verifyPassword(user, request.password)) {
+                // Log failed attempt
+                security.incrementFailedLoginAttempts()
+                userSecurityRepository.save(security)
+
+                val failLog = UserActivityLog.create(
+                    user = user,
+                    action = UserAction.LOGIN,
+                    description = "Failed login attempt",
+                    ipAddress = request.ipAddress,
+                    userAgent = request.userAgent
+                )
+                userActivityLogRepository.save(failLog)
+
+                logger.warn("Invalid password for user: ${user.username} (Failed attempts: ${security.failedLoginAttempts})")
+                return null
+            }
+            logger.info("Password verified successfully")
+
+            // Reset failed login attempts on successful login
+            security.resetFailedLoginAttempts()
             userSecurityRepository.save(security)
+            logger.info("Reset failed login attempts")
 
-            val failLog = UserActivityLog.create(
+            // Create new session
+            val session = UserSession(
                 user = user,
-                action = UserAction.LOGIN,
-                description = "Failed login attempt",
+                sessionToken = generateSecureToken(),
                 ipAddress = request.ipAddress,
-                userAgent = request.userAgent
+                userAgent = request.userAgent,
+                deviceInfo = request.deviceInfo,
+                expiresAt = LocalDateTime.now().plusDays(30) // 30 days session
             )
-            userActivityLogRepository.save(failLog)
+            val savedSession = userSessionRepository.save(session)
+            logger.info("Session created successfully (Token: ${savedSession.sessionToken})")
 
-            logger.warn("Invalid password for user: ${user.username}")
-            return null
+            // Log successful login
+            val loginLog = UserActivityLog.createLoginLog(
+                user = user,
+                ipAddress = request.ipAddress,
+                userAgent = request.userAgent,
+                deviceInfo = request.deviceInfo
+            )
+            userActivityLogRepository.save(loginLog)
+            logger.info("Login activity logged")
+
+            logger.info("User authenticated successfully: ${user.username}")
+            return savedSession
+        } catch (e: Exception) {
+            logger.error("Error during login process for user: ${request.usernameOrEmail}", e)
+            throw e
         }
-
-        // Reset failed login attempts on successful login
-        security.resetFailedLoginAttempts()
-        userSecurityRepository.save(security)
-
-        // Create new session
-        val session = UserSession(
-            user = user,
-            sessionToken = generateSecureToken(),
-            ipAddress = request.ipAddress,
-            userAgent = request.userAgent,
-            deviceInfo = request.deviceInfo,
-            expiresAt = LocalDateTime.now().plusDays(30) // 30 days session
-        )
-        val savedSession = userSessionRepository.save(session)
-
-        // Log successful login
-        val loginLog = UserActivityLog.createLoginLog(
-            user = user,
-            ipAddress = request.ipAddress,
-            userAgent = request.userAgent,
-            deviceInfo = request.deviceInfo
-        )
-        userActivityLogRepository.save(loginLog)
-
-        logger.info("User authenticated successfully: ${user.username}")
-        return savedSession
     }
 
     /**
@@ -164,11 +187,11 @@ open class AuthService @Inject constructor(
     }
 
     /**
-     * Generate secure random token
+     * Generate a secure random token for session
      */
-    open fun generateSecureToken(): String {
+    private fun generateSecureToken(): String {
         val bytes = ByteArray(32)
         secureRandom.nextBytes(bytes)
-        return bytes.joinToString("") { "%02x".format(it) }
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
     }
 }

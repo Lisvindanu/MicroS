@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnaphygonMicros - Streaming Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab:hover {
+            background-color: #f8f9fa;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .user-info h3 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .user-info p {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .loading:after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🎬 AnaphygonMicros</h1>
+        <p>Your Movie & Series Streaming Platform</p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert" class="alert"></div>
+    <div id="loading" class="loading"></div>
+
+    <!-- Auth Forms -->
+    <div id="auth-section">
+        <div class="tabs">
+            <div class="tab active" data-tab="login">Login</div>
+            <div class="tab" data-tab="register">Register</div>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form" class="form-section active">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Username or Email</label>
+                    <input type="text" id="loginUsername" name="usernameOrEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-form" class="form-section">
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="regUsername">Username</label>
+                    <input type="text" id="regUsername" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="regEmail">Email</label>
+                    <input type="email" id="regEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <input type="password" id="regPassword" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="regFirstName">First Name (Optional)</label>
+                    <input type="text" id="regFirstName" name="firstName">
+                </div>
+                <div class="form-group">
+                    <label for="regLastName">Last Name (Optional)</label>
+                    <input type="text" id="regLastName" name="lastName">
+                </div>
+                <button type="submit" class="btn btn-primary">Register</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <div class="user-info">
+            <h3>Welcome, <span id="displayName"></span>!</h3>
+            <p><strong>Username:</strong> <span id="username"></span></p>
+            <p><strong>Email:</strong> <span id="email"></span></p>
+            <p><strong>Status:</strong> <span id="status"></span></p>
+            <p><strong>Role:</strong> <span id="role"></span></p>
+            <p><strong>Premium:</strong> <span id="premium"></span></p>
+            <p><strong>Member since:</strong> <span id="memberSince"></span></p>
+        </div>
+
+        <div class="action-buttons">
+            <button id="viewProfile" class="btn btn-secondary">View Profile</button>
+            <button id="updateProfile" class="btn btn-secondary">Update Profile</button>
+            <button id="viewPreferences" class="btn btn-secondary">Preferences</button>
+            <button id="logout" class="btn btn-primary">Logout</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080';
+    let sessionToken = localStorage.getItem('sessionToken');
+
+    // DOM Elements
+    const authSection = document.getElementById('auth-section');
+    const dashboard = document.getElementById('dashboard');
+    const alert = document.getElementById('alert');
+    const loading = document.getElementById('loading');
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
+
+            tab.classList.add('active');
+            document.getElementById(tab.dataset.tab + '-form').classList.add('active');
+        });
+    });
+
+    // Show alert
+    function showAlert(message, type = 'success') {
+        alert.textContent = message;
+        alert.className = `alert ${type}`;
+        alert.style.display = 'block';
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 5000);
+    }
+
+    // Show loading
+    function showLoading(show = true) {
+        loading.style.display = show ? 'block' : 'none';
+    }
+
+    // API Request helper
+    async function apiRequest(endpoint, options = {}) {
+        const config = {
+            mode: 'cors',
+            credentials: 'include',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` }),
+                ...options.headers
+            }
+        };
+
+        try {
+            console.log(`Making request to: ${API_BASE}${endpoint}`, config);
+            const response = await fetch(`${API_BASE}${endpoint}`, config);
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('Response data:', data);
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    }
+
+    // Login
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLoading(true);
+
+        const formData = new FormData(e.target);
+        const loginData = {
+            usernameOrEmail: formData.get('usernameOrEmail'),
+            password: formData.get('password'),
+            ipAddress: '127.0.0.1',
+            userAgent: navigator.userAgent
+        };
+
+        try {
+            const response = await apiRequest('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify(loginData)
+            });
+
+            if (response.success) {
+                sessionToken = response.data.sessionToken;
+                localStorage.setItem('sessionToken', sessionToken);
+                showAlert('Login successful!');
+                loadDashboard(response.data.user);
+            } else {
+                showAlert(response.message || 'Login failed', 'error');
+            }
+        } catch (error) {
+            showAlert('Login error: ' + error.message, 'error');
+        } finally {
+            showLoading(false);
+        }
+    });
+
+    // Register
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLoading(true);
+
+        const formData = new FormData(e.target);
+        const registerData = {
+            username: formData.get('username'),
+            email: formData.get('email'),
+            password: formData.get('password'),
+            firstName: formData.get('firstName') || null,
+            lastName: formData.get('lastName') || null
+        };
+
+        try {
+            const response = await apiRequest('/api/users/register', {
+                method: 'POST',
+                body: JSON.stringify(registerData)
+            });
+
+            if (response.success) {
+                showAlert('Registration successful! Please login.');
+                // Switch to login tab
+                document.querySelector('.tab[data-tab="login"]').click();
+            } else {
+                showAlert(response.message || 'Registration failed', 'error');
+            }
+        } catch (error) {
+            showAlert('Registration error: ' + error.message, 'error');
+        } finally {
+            showLoading(false);
+        }
+    });
+
+    // Load dashboard
+    function loadDashboard(user) {
+        authSection.style.display = 'none';
+        dashboard.classList.add('active');
+
+        document.getElementById('displayName').textContent = user.username;
+        document.getElementById('username').textContent = user.username;
+        document.getElementById('email').textContent = user.email;
+        document.getElementById('status').textContent = user.status;
+        document.getElementById('role').textContent = user.currentRole || 'USER';
+        document.getElementById('premium').textContent = user.isPremium ? 'Yes' : 'No';
+        document.getElementById('memberSince').textContent = new Date(user.createdAt).toLocaleDateString();
+    }
+
+    // View Profile
+    document.getElementById('viewProfile').addEventListener('click', async () => {
+        showLoading(true);
+        try {
+            const response = await apiRequest('/api/profile/');
+            if (response.success) {
+                const profile = response.data;
+                showAlert(`Profile - Name: ${profile.firstName || 'N/A'} ${profile.lastName || 'N/A'}, Bio: ${profile.bio || 'N/A'}, Country: ${profile.country || 'N/A'}`);
+            } else {
+                showAlert(response.message || 'Failed to load profile', 'error');
+            }
+        } catch (error) {
+            showAlert('Error loading profile: ' + error.message, 'error');
+        } finally {
+            showLoading(false);
+        }
+    });
+
+    // View Preferences
+    document.getElementById('viewPreferences').addEventListener('click', async () => {
+        showLoading(true);
+        try {
+            const response = await apiRequest('/api/profile/preferences');
+            if (response.success) {
+                const prefs = response.data;
+                showAlert(`Preferences - Language: ${prefs.preferredLanguage}, Quality: ${prefs.preferredQuality}, Autoplay: ${prefs.autoplayEnabled}`);
+            } else {
+                showAlert(response.message || 'Failed to load preferences', 'error');
+            }
+        } catch (error) {
+            showAlert('Error loading preferences: ' + error.message, 'error');
+        } finally {
+            showLoading(false);
+        }
+    });
+
+    // Logout
+    document.getElementById('logout').addEventListener('click', async () => {
+        showLoading(true);
+        try {
+            await apiRequest('/api/auth/logout', {
+                method: 'POST',
+                body: JSON.stringify({})
+            });
+
+            sessionToken = null;
+            localStorage.removeItem('sessionToken');
+
+            dashboard.classList.remove('active');
+            authSection.style.display = 'block';
+
+            showAlert('Logged out successfully!');
+        } catch (error) {
+            showAlert('Logout error: ' + error.message, 'error');
+        } finally {
+            showLoading(false);
+        }
+    });
+
+    // Check existing session on load
+    window.addEventListener('load', async () => {
+        if (sessionToken) {
+            showLoading(true);
+            try {
+                const response = await apiRequest('/api/auth/validate');
+                if (response.success) {
+                    loadDashboard(response.data.user);
+                } else {
+                    sessionToken = null;
+                    localStorage.removeItem('sessionToken');
+                }
+            } catch (error) {
+                sessionToken = null;
+                localStorage.removeItem('sessionToken');
+            } finally {
+                showLoading(false);
+            }
+        }
+    });
+</script>
+</body>
+</html>

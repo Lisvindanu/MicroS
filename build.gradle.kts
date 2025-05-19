@@ -59,6 +59,7 @@ dependencies {
     // Security
     implementation("io.micronaut.security:micronaut-security-jwt")
     implementation("io.micronaut.security:micronaut-security-oauth2")
+    implementation("org.mindrot:jbcrypt:0.4") // BCrypt for password hashing
 
     // Distributed tracing - comment out untuk development awal
     // implementation("io.micronaut.tracing:micronaut-tracing-jaeger")
@@ -83,6 +84,13 @@ dependencies {
     // testImplementation("org.testcontainers:kafka")
     // testImplementation("org.testcontainers:mysql")
     // testImplementation("org.testcontainers:testcontainers")
+
+    // ===== REACTIVE DEPENDENCIES UNTUK CORS =====
+    // Reactor Core - untuk Mono dan Flux
+    implementation("io.projectreactor:reactor-core")
+
+    // Micronaut Reactor - integrasi Micronaut dengan Reactor
+    implementation("io.micronaut.reactor:micronaut-reactor")
 
     // AOT (Ahead of Time) compilation support
     aotPlugins(platform("io.micronaut.platform:micronaut-platform:4.8.2"))

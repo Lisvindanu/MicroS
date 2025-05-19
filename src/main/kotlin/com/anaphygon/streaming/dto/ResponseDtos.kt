@@ -76,3 +76,38 @@ data class ActivityLogResponse(
     val ipAddress: String?,
     val createdAt: LocalDateTime
 )
+
+/**
+ * Content response DTO for featured content
+ */
+data class ContentResponse(
+    val id: Long,
+    val title: String,
+    val description: String?,
+    val thumbnailUrl: String?,
+    val contentType: String,
+    val rating: Double?,
+    val releaseYear: Int?,
+    val duration: Int?,
+    val genres: List<String>,
+    val isFeatured: Boolean = false
+)
+
+/**
+ * Profile response DTO
+ */
+data class ProfileResponse(
+    val id: Long,
+    val userId: Long,
+    val firstName: String?,
+    val lastName: String?,
+    val displayName: String?,
+    val bio: String?,
+    val avatarUrl: String?,
+    val phoneNumber: String?,
+    val country: String?,
+    val timezone: String?,
+    val age: Int?,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime
+)

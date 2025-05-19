@@ -3,10 +3,12 @@ package com.anaphygon.streaming.controller
 import com.anaphygon.streaming.dto.*
 import com.anaphygon.streaming.model.*
 import com.anaphygon.streaming.service.AuthService
+import io.micronaut.http.HttpResponse
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 import jakarta.inject.Inject
+import org.slf4j.LoggerFactory
 
 /**
  * Authentication Controller - handles login/logout operations
@@ -15,16 +17,17 @@ import jakarta.inject.Inject
 open class AuthController @Inject constructor(
     private val authService: AuthService
 ) {
+    private val logger = LoggerFactory.getLogger(AuthController::class.java)
 
     /**
      * User login
      */
     @Post("/login")
     @Secured(SecurityRule.IS_ANONYMOUS)
-    open fun login(@Body request: UserLoginRequest): ApiResponse<SessionResponse> {
+    open fun login(@Body request: UserLoginRequest): HttpResponse<ApiResponse<SessionResponse>> {
         return try {
             val session = authService.login(request)
-            if (session != null) {
+            val response = if (session != null) {
                 ApiResponse(
                     success = true,
                     data = session.toSessionResponse(),
@@ -36,11 +39,15 @@ open class AuthController @Inject constructor(
                     message = "Invalid credentials or account locked"
                 )
             }
+
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            logger.error("Login failed for user: ${request.usernameOrEmail}", e)
+            val response = ApiResponse<SessionResponse>(
                 success = false,
-                message = "Login failed: ${e.message}"
+                message = "Login failed: ${e.message ?: "Unknown error"}"
             )
+            HttpResponse.serverError(response)
         }
     }
 
@@ -52,27 +59,28 @@ open class AuthController @Inject constructor(
     open fun logout(
         @Header("Authorization") authToken: String,
         @Body logoutRequest: Map<String, String>?
-    ): ApiResponse<Boolean> {
+    ): HttpResponse<ApiResponse<Boolean>> {
         return try {
-            // Extract session token from Authorization header
             val sessionToken = authToken.removePrefix("Bearer ").trim()
-
             val success = authService.logout(
                 sessionToken = sessionToken,
                 ipAddress = logoutRequest?.get("ipAddress"),
                 userAgent = logoutRequest?.get("userAgent")
             )
 
-            ApiResponse(
+            val response = ApiResponse(
                 success = success,
                 data = success,
                 message = if (success) "Logout successful" else "Logout failed"
             )
+
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<Boolean>(
                 success = false,
                 message = "Logout failed: ${e.message}"
             )
+            HttpResponse.badRequest(response)
         }
     }
 
@@ -81,12 +89,12 @@ open class AuthController @Inject constructor(
      */
     @Get("/validate")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun validateSession(@Header("Authorization") authToken: String): ApiResponse<SessionResponse> {
+    open fun validateSession(@Header("Authorization") authToken: String): HttpResponse<ApiResponse<SessionResponse>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.validateAndUpdateSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 ApiResponse(
                     success = true,
                     data = session.toSessionResponse(),
@@ -98,11 +106,14 @@ open class AuthController @Inject constructor(
                     message = "Invalid or expired session"
                 )
             }
+
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<SessionResponse>(
                 success = false,
                 message = "Session validation failed: ${e.message}"
             )
+            HttpResponse.badRequest(response)
         }
     }
 
@@ -111,12 +122,12 @@ open class AuthController @Inject constructor(
      */
     @Post("/logout-all")
     @Secured(SecurityRule.IS_AUTHENTICATED)
-    open fun logoutAll(@Header("Authorization") authToken: String): ApiResponse<Boolean> {
+    open fun logoutAll(@Header("Authorization") authToken: String): HttpResponse<ApiResponse<Boolean>> {
         return try {
             val sessionToken = authToken.removePrefix("Bearer ").trim()
             val session = authService.findActiveSession(sessionToken)
 
-            if (session != null) {
+            val response = if (session != null) {
                 val success = authService.endAllUserSessions(session.user.id!!)
                 ApiResponse(
                     success = success,
@@ -129,11 +140,14 @@ open class AuthController @Inject constructor(
                     message = "Invalid session"
                 )
             }
+
+            HttpResponse.ok(response)
         } catch (e: Exception) {
-            ApiResponse(
+            val response = ApiResponse<Boolean>(
                 success = false,
                 message = "Failed to end sessions: ${e.message}"
             )
+            HttpResponse.badRequest(response)
         }
     }
 

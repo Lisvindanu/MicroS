@@ -2,13 +2,16 @@ package com.anaphygon.streaming.service
 
 import com.anaphygon.streaming.model.*
 import com.anaphygon.streaming.repository.UserRepository
+import com.anaphygon.streaming.repository.UserSecurityRepository
 import com.anaphygon.streaming.dto.UserRegistrationRequest
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import jakarta.transaction.Transactional
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
 import java.time.LocalDateTime
+import org.mindrot.jbcrypt.BCrypt
 
 /**
  * Core User Service - handles basic user CRUD operations
@@ -16,7 +19,8 @@ import java.time.LocalDateTime
 @Singleton
 @Transactional
 open class UserService @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val userSecurityRepository: UserSecurityRepository
 ) {
 
     private val logger = LoggerFactory.getLogger(UserService::class.java)
@@ -36,17 +40,28 @@ open class UserService @Inject constructor(
             throw IllegalArgumentException("Email '${request.email}' already exists")
         }
 
+        // Hash password
+        logger.info("Hashing password for user: ${request.username}")
+        val hashedPassword = hashPassword(request.password)
+        logger.info("Password hashed successfully")
+
         // Create and save user
         val user = User(
             username = request.username,
             email = request.email,
-            passwordHash = hashPassword(request.password),
+            passwordHash = hashedPassword,
             emailVerified = false,
             status = UserStatus.ACTIVE
         )
 
         val savedUser = userRepository.save(user)
         logger.info("User created with ID: ${savedUser.id}")
+
+        // Create security record
+        val security = UserSecurity(user = savedUser)
+        userSecurityRepository.save(security)
+        logger.info("Security record created for user: ${savedUser.username}")
+
         return savedUser
     }
 
@@ -92,7 +107,28 @@ open class UserService @Inject constructor(
      * Verify user password
      */
     open fun verifyPassword(user: User, password: String): Boolean {
-        return hashPassword(password) == user.passwordHash
+        return try {
+            logger.info("Verifying password for user: ${user.username}")
+            
+            if (user.passwordHash == null) {
+                logger.error("Password hash is null for user: ${user.username}")
+                return false
+            }
+            
+            // Check if the stored hash is BCrypt
+            if (user.passwordHash.startsWith("$2")) {
+                logger.info("Using BCrypt verification")
+                BCrypt.checkpw(password, user.passwordHash)
+            } else {
+                // Fallback to SHA-256
+                logger.info("Using SHA-256 verification")
+                val hashedPassword = hashPassword(password)
+                hashedPassword == user.passwordHash
+            }
+        } catch (e: Exception) {
+            logger.error("Error verifying password for user: ${user.username}", e)
+            false
+        }
     }
 
     /**
@@ -139,11 +175,14 @@ open class UserService @Inject constructor(
     // === PRIVATE METHODS ===
 
     /**
-     * Hash password using SHA-256 (use BCrypt in production)
+     * Hash password using BCrypt
      */
     private fun hashPassword(password: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hashBytes = digest.digest(password.toByteArray())
-        return hashBytes.joinToString("") { "%02x".format(it) }
+        return try {
+            BCrypt.hashpw(password, BCrypt.gensalt(12))
+        } catch (e: Exception) {
+            logger.error("Error hashing password", e)
+            throw RuntimeException("Error hashing password", e)
+        }
     }
 }
