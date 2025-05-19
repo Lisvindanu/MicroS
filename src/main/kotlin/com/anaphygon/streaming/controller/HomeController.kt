@@ -6,11 +6,11 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 
 @Controller
-class HomeController {
+open class HomeController {
 
     @Get("/")
     @Secured(SecurityRule.IS_ANONYMOUS) // Allow anonymous access
-    fun index(): Map<String, Any> {
+    open fun index(): Map<String, Any> {
         return mapOf(
             "message" to "Welcome to AnaphygonMicros Streaming Platform!",
             "version" to "0.1.0",
@@ -25,7 +25,7 @@ class HomeController {
 
     @Get("/health-check")
     @Secured(SecurityRule.IS_ANONYMOUS)
-    fun healthCheck(): Map<String, Any> {
+    open fun healthCheck(): Map<String, Any> {
         return mapOf(
             "status" to "UP",
             "service" to "AnaphygonMicros",
@@ -35,7 +35,7 @@ class HomeController {
 
     @Get("/public/info")
     @Secured(SecurityRule.IS_ANONYMOUS)
-    fun publicInfo(): Map<String, Any> {
+    open fun publicInfo(): Map<String, Any> {
         return mapOf(
             "platform" to "AnaphygonMicros",
             "description" to "Movie & Series Streaming Platform",
