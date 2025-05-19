@@ -36,14 +36,14 @@ open class AuthService @Inject constructor(
             val user = userService.findByUsernameOrEmail(request.usernameOrEmail)
             if (user == null) {
                 logger.warn("User not found: ${request.usernameOrEmail}")
-                return null
+                throw IllegalArgumentException("Invalid username or email")
             }
             logger.info("User found: ${user.username} (ID: ${user.id})")
 
             // Check if account is active
             if (!user.isActive()) {
                 logger.warn("Login attempt for inactive user: ${user.username} (Status: ${user.status})")
-                return null
+                throw IllegalStateException("Account is not active")
             }
             logger.info("User is active")
 
@@ -52,14 +52,14 @@ open class AuthService @Inject constructor(
                 .orElse(null)
             if (security == null) {
                 logger.error("Security record not found for user: ${user.username}")
-                return null
+                throw IllegalStateException("Account security record not found")
             }
             logger.info("Security record found (ID: ${security.id})")
 
             // Check if account is locked
             if (security.isAccountLocked()) {
                 logger.warn("Login attempt for locked account: ${user.username} (Locked until: ${security.accountLockedUntil})")
-                return null
+                throw IllegalStateException("Account is locked until ${security.accountLockedUntil}")
             }
             logger.info("Account is not locked")
 
@@ -80,7 +80,7 @@ open class AuthService @Inject constructor(
                 userActivityLogRepository.save(failLog)
 
                 logger.warn("Invalid password for user: ${user.username} (Failed attempts: ${security.failedLoginAttempts})")
-                return null
+                throw IllegalArgumentException("Invalid password")
             }
             logger.info("Password verified successfully")
 

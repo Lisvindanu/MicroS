@@ -20,7 +20,7 @@ interface UserRepository : JpaRepository<User, Long> {
     fun existsByEmail(email: String): Boolean
 
     // === AUTHENTICATION QUERIES ===
-    @Query("SELECT u FROM User u WHERE (u.username = :usernameOrEmail OR u.email = :usernameOrEmail)")
+    @Query("SELECT u FROM User u WHERE (LOWER(u.username) = LOWER(:usernameOrEmail) OR LOWER(u.email) = LOWER(:usernameOrEmail))")
     fun findByUsernameOrEmail(usernameOrEmail: String): Optional<User>
 
     // === STATUS QUERIES ===
